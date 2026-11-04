@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whispering Breeze - Artisanal Luxury Scented Candles</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Supabase JavaScript Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            amber: {
+              50: '#fffbeed',
+              100: '#fef3c7',
+              700: '#b45309',
+              800: '#92400e',
+              900: '#78350f',
+              950: '#451a03',
+            },
+            warm: {
+              50: '#faf7f2',
+              100: '#f3ece1',
+              200: '#e5d7c3',
+              800: '#3d312a',
+              900: '#231b17',
+              950: '#150f0c',
+            }
+          },
+          fontFamily: {
+            serif: ['"Playfair Display"', 'serif'],
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #150f0c; }
+    ::-webkit-scrollbar-thumb { background: #78350f; border-radius: 9999px; }
+    
+    .editable-highlight {
+      outline: 2px dashed rgba(245, 158, 11, 0.5);
+      outline-offset: 2px;
+      transition: all 0.2s ease;
+      cursor: text;
+    }
+    .editable-highlight:hover {
+      outline: 2px dashed rgba(245, 158, 11, 0.9);
+      background-color: rgba(245, 158, 11, 0.1);
+    }
+    body.preview-mode .editable-highlight {
+      outline: none !important;
+      background-color: transparent !important;
+      cursor: inherit;
+    }
+    [contenteditable="true"]:focus {
+      outline: 2px solid #f59e0b !important;
+      background-color: #231b17 !important;
+      color: #fffbeed !important;
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
+    .glass-card {
+      background: rgba(35, 27, 23, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(254, 243, 199, 0.1);
+    }
+
+    /* Larger, responsive product photography (catalog + product detail popup only). */
+    .product-card-media {
+      height: clamp(250px, 25vw, 350px);
+      aspect-ratio: auto !important;
+      background: #150f0c;
+    }
+    .product-card-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain !important;
+      padding: 10px;
+    }
+    .product-modal-main-image {
+      width: 100%;
+      height: clamp(320px, 58vh, 640px);
+      background: #150f0c;
+    }
+    .product-modal-main-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain !important;
+      padding: 8px;
+    }
+    @media (max-width: 767px) {
+      .product-card-media { height: clamp(280px, 68vw, 390px); }
+      .product-modal-main-image { height: clamp(250px, 42vh, 420px); }
+    }
+  </style>
+</head>
+<body class="bg-warm-950 text-warm-100 font-sans min-h-full flex flex-col selection:bg-amber-800 selection:text-amber-100">
+
+  <!-- Admin Customization Control Bar -->
+  <header id="adminToolbar" class="hidden sticky top-0 z-50 bg-warm-900 text-amber-50 px-4 py-2.5 shadow-xl border-b border-amber-900/40 flex flex-wrap justify-between items-center text-xs md:text-sm">
+    <div class="flex items-center gap-3">
+      <span class="inline-flex items-center gap-1.5 font-semibold text-amber-400">
+        <i data-lucide="edit-3" class="w-4 h-4"></i>
+        <span>Store Customizer Mode</span>
+      </span>
+      <span class="text-warm-200/40 hidden md:inline">|</span>
+      <span class="text-warm-200/80 text-xs hidden md:inline">Click text to edit • Replace photos • Add, edit, delete products • Manage stock</span>
+    </div>
+
+    <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+      <!-- Edit / Preview Mode Switcher -->
+      <div class="flex bg-warm-950 p-1 rounded-lg border border-warm-200/20">
+        <button id="btnModeEdit" onclick="setMode('edit')" class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium bg-amber-700 text-white shadow-sm transition">
+          <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Edit Mode
+        </button>
+        <button id="btnModePreview" onclick="setMode('preview')" class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-warm-200 hover:text-white transition">
+          <i data-lucide="eye" class="w-3.5 h-3.5"></i> Live Preview
+        </button>
+      </div>
+
+      <!-- Add Product Modal Trigger -->
+      <button onclick="openAddProductModal()" class="flex items-center gap-1 px-3 py-1.5 bg-amber-800 hover:bg-amber-700 text-white rounded-md transition text-xs font-semibold shadow">
+        <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> <span>Add New Candle</span>
+      </button>
+
+      <!-- Quick Actions -->
+      <button onclick="saveStoreData()" class="flex items-center gap-1 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-md transition text-xs font-semibold shadow">
+        <i data-lucide="save" class="w-3.5 h-3.5"></i> <span>Save Store</span>
+      </button>
+      <button onclick="resetStoreData()" class="flex items-center gap-1 px-2.5 py-1.5 bg-rose-900/80 hover:bg-rose-800 text-rose-100 rounded-md transition text-xs font-medium" title="Reset to default candle store data">
+        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> <span class="hidden sm:inline">Reset</span>
+      </button>
+      <button onclick="adminLogout()" class="flex items-center gap-1 px-3 py-1.5 bg-warm-950 hover:bg-rose-950 text-amber-200 rounded-md border border-amber-900/50 transition text-xs font-semibold">
+        <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Logout
+      </button>
+    </div>
+  </header>
+
+  <!-- Announcement Bar -->
+  <div class="bg-gradient-to-r from-amber-950 via-amber-900 to-amber-950 text-amber-200 text-xs py-2 px-4 text-center font-medium tracking-wide flex justify-center items-center gap-2 border-b border-amber-800/40">
+    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
+    <span id="announcementText" class="editable-field" data-key="announcementText">✨ LUXURY OFFER: Complimentary Wooden Wick Trimmer on orders over ₹1,499 | Code: GLOW2026</span>
+  </div>
+
+  <!-- Navigation Bar -->
+  <nav class="bg-warm-950/90 backdrop-blur-md sticky top-0 z-40 border-b border-warm-800/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        
+        <div class="flex md:hidden">
+          <button onclick="toggleMobileMenu()" class="text-warm-200 p-2">
+            <i data-lucide="menu" class="w-6 h-6"></i>
+          </button>
+        </div>
+
+        <!-- Store Brand Title -->
+        <div class="flex-1 md:flex-none text-center md:text-left">
+          <a href="#" class="inline-block">
+            <h1 id="storeTitle" class="font-serif text-2xl md:text-3xl font-bold tracking-widest text-amber-100 editable-field" data-key="storeTitle">Whispering Breeze</h1>
+            <p id="storeSubtitle" class="text-[10px] uppercase tracking-[0.25em] text-amber-500 font-semibold editable-field" data-key="storeSubtitle">Maison De Parfum & Bougies</p>
+          </a>
+        </div>
+
+        <!-- Navigation Links -->
+        <div class="hidden md:flex items-center space-x-8 text-xs font-semibold uppercase tracking-wider text-warm-200">
+          <a href="#shop" class="hover:text-amber-400 transition editable-field" data-key="navLink1">Shop Catalog</a>
+          <a href="#scentFinder" class="hover:text-amber-400 transition editable-field" data-key="navLink2">Scent Quiz</a>
+          <a href="#deals" class="hover:text-amber-400 transition editable-field" data-key="navLink3">Limited Deals</a>
+          <a href="#story" class="hover:text-amber-400 transition editable-field" data-key="navLink4">Our Craft</a>
+          <a href="#reviews" class="hover:text-amber-400 transition editable-field" data-key="navLink5">Reviews</a>
+        </div>
+
+        <!-- Utilities -->
+        <div class="flex items-center gap-4">
+          <div class="relative hidden sm:block">
+            <input type="text" id="searchInput" oninput="filterProducts()" placeholder="Search lavender, amber, woody..." class="w-40 md:w-56 pl-8 pr-3 py-1.5 text-xs rounded-full bg-warm-900 border border-amber-900/50 text-warm-100 placeholder-warm-400 focus:outline-none focus:border-amber-500 transition">
+            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-amber-500/70"></i>
+          </div>
+
+          <!-- Currency Selector -->
+          <select id="currencySelector" onchange="changeCurrency(this.value)" class="text-xs bg-warm-900 border border-amber-900/50 rounded-md px-2 py-1 text-amber-300 focus:outline-none cursor-pointer">
+            <option value="₹">INR (₹)</option>
+            <option value="$">USD ($)</option>
+            <option value="€">EUR (€)</option>
+          </select>
+
+          <!-- Cart Drawer Trigger -->
+          <button onclick="toggleCartDrawer()" class="relative p-2 text-amber-200 hover:text-amber-400 transition">
+            <i data-lucide="shopping-bag" class="w-6 h-6"></i>
+            <span id="cartBadge" class="absolute top-1 right-0 bg-amber-600 text-white text-[10px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center scale-0 transition-transform shadow-md">0</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div id="mobileMenu" class="hidden md:hidden bg-warm-900 border-b border-amber-900/40 px-4 py-4 space-y-3 text-center text-xs uppercase tracking-wider font-semibold text-warm-200">
+      <a href="#shop" onclick="toggleMobileMenu()" class="block py-1 hover:text-amber-400 editable-field" data-key="navLink1">Shop Catalog</a>
+      <a href="#scentFinder" onclick="toggleMobileMenu()" class="block py-1 hover:text-amber-400 editable-field" data-key="navLink2">Scent Quiz</a>
+      <a href="#deals" onclick="toggleMobileMenu()" class="block py-1 hover:text-amber-400 editable-field" data-key="navLink3">Limited Deals</a>
+      <a href="#story" onclick="toggleMobileMenu()" class="block py-1 hover:text-amber-400 editable-field" data-key="navLink4">Our Craft</a>
+    </div>
+  </nav>
+
+  <!-- Expanded Multi-Slide Hero Carousel -->
+  <section class="relative bg-gradient-to-b from-warm-950 via-warm-900 to-warm-950 overflow-hidden py-12 md:py-20 border-b border-amber-900/30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <!-- Slide Container -->
+      <div id="heroCarousel" class="relative">
+        
+        <!-- Slide 1 -->
+        <div class="hero-slide grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+          <div class="space-y-6 text-center md:text-left">
+            <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-950/80 border border-amber-800/60 text-amber-300 text-xs font-semibold tracking-wide">
+              <i data-lucide="flame" class="w-4 h-4 text-amber-500 fill-amber-500"></i>
+              <span id="hero1Tag" class="editable-field" data-key="hero1Tag">Handcrafted Artisanal Soy Candles</span>
+            </div>
+            <h2 id="hero1Heading" class="font-serif text-4xl sm:text-5xl lg:text-6xl font-bold text-amber-50 leading-tight editable-field" data-key="hero1Heading">
+              Illuminate Your Soul With Warm Warmth.
+            </h2>
+            <p id="hero1Description" class="text-warm-300 text-sm sm:text-base leading-relaxed max-w-xl editable-field" data-key="hero1Description">
+              Sustainably sourced botanical oils hand-poured into mouth-blown amber glass vessels. Complete with crackling wooden wicks for a soothing fireside ambience.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center md:justify-start pt-2">
+              <a href="#shop" id="hero1Btn1" class="px-8 py-3.5 bg-gradient-to-r from-amber-700 to-amber-800 hover:from-amber-600 hover:to-amber-700 text-white font-semibold text-xs uppercase tracking-wider rounded-xl shadow-lg transition text-center editable-field" data-key="hero1Btn1">
+                Explore 2026 Collection
+              </a>
+              <a href="#scentFinder" id="hero1Btn2" class="px-8 py-3.5 bg-warm-900 hover:bg-warm-800 text-amber-200 border border-amber-800/60 font-semibold text-xs uppercase tracking-wider rounded-xl transition text-center editable-field" data-key="hero1Btn2">
+                Find Your Scent Notes
+              </a>
+            </div>
+          </div>
+
+          <!-- Hero Image 1 -->
+          <div class="relative group">
+            <div class="relative mx-auto max-w-md lg:max-w-none rounded-2xl overflow-hidden shadow-2xl border border-amber-800/40 aspect-[4/3] glass-card">
+              <img id="heroImage1" data-img-key="heroImage1" src="https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=1200&q=80" alt="Hero Featured Candle" class="w-full h-full object-cover transition duration-700 group-hover:scale-105">
+              
+              <button onclick="triggerImageEdit('heroImage1')" class="edit-img-btn absolute inset-0 bg-black/60 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer">
+                <i data-lucide="camera" class="w-8 h-8 mb-2 text-amber-400"></i>
+                <span class="text-xs font-semibold bg-warm-900/90 text-amber-200 px-4 py-1.5 rounded-full border border-amber-700">Replace Main Banner Image</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Hero Key Highlights Bar -->
+      <div class="mt-12 pt-8 border-t border-amber-900/30 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <div class="flex items-center justify-center gap-3 p-3 bg-warm-900/50 rounded-xl border border-amber-900/30">
+          <i data-lucide="leaf" class="w-5 h-5 text-amber-400"></i>
+          <span class="text-xs font-medium text-amber-100">100% Organic Soy Wax</span>
+        </div>
+        <div class="flex items-center justify-center gap-3 p-3 bg-warm-900/50 rounded-xl border border-amber-900/30">
+          <i data-lucide="flame" class="w-5 h-5 text-amber-400"></i>
+          <span class="text-xs font-medium text-amber-100">Crackling Natural Wooden Wick</span>
+        </div>
+        <div class="flex items-center justify-center gap-3 p-3 bg-warm-900/50 rounded-xl border border-amber-900/30">
+          <i data-lucide="clock" class="w-5 h-5 text-amber-400"></i>
+          <span class="text-xs font-medium text-amber-100">50+ Hours Clean Burn</span>
+        </div>
+        <div class="flex items-center justify-center gap-3 p-3 bg-warm-900/50 rounded-xl border border-amber-900/30">
+          <i data-lucide="shield-check" class="w-5 h-5 text-amber-400"></i>
+          <span class="text-xs font-medium text-amber-100">Phthalate & Soot Free</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Scent Finder Interactive Filter Tool -->
+  <section id="scentFinder" class="py-12 bg-warm-900/60 border-b border-amber-900/30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <span class="text-xs font-semibold uppercase tracking-widest text-amber-400">Interactive Scent Selector</span>
+      <h3 class="font-serif text-3xl font-bold text-amber-50 mt-1">What Vibe Are You Looking For?</h3>
+      <p class="text-xs text-warm-300 mt-1 max-w-lg mx-auto">Click a scent mood below to instantly reveal recommended hand-poured candle blends.</p>
+
+      <div class="flex flex-wrap justify-center gap-3 mt-6">
+        <button onclick="filterByNote('all', this)" class="scent-note-btn active px-5 py-2.5 rounded-xl text-xs font-semibold bg-amber-800 text-white border border-amber-700 transition flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-4 h-4"></i> Show All Scents
+        </button>
+        <button onclick="filterByNote('Relaxation', this)" class="scent-note-btn px-5 py-2.5 rounded-xl text-xs font-semibold bg-warm-950 text-amber-200 border border-amber-900/50 hover:border-amber-600 transition flex items-center gap-2">
+          <i data-lucide="moon" class="w-4 h-4 text-purple-400"></i> Deep Sleep & Relaxation
+        </button>
+        <button onclick="filterByNote('Woody', this)" class="scent-note-btn px-5 py-2.5 rounded-xl text-xs font-semibold bg-warm-950 text-amber-200 border border-amber-900/50 hover:border-amber-600 transition flex items-center gap-2">
+          <i data-lucide="trees" class="w-4 h-4 text-emerald-400"></i> Cozy Woodsy & Earthy
+        </button>
+        <button onclick="filterByNote('Floral', this)" class="scent-note-btn px-5 py-2.5 rounded-xl text-xs font-semibold bg-warm-950 text-amber-200 border border-amber-900/50 hover:border-amber-600 transition flex items-center gap-2">
+          <i data-lucide="flower-2" class="w-4 h-4 text-pink-400"></i> Sweet Floral & Rose
+        </button>
+        <button onclick="filterByNote('Citrus', this)" class="scent-note-btn px-5 py-2.5 rounded-xl text-xs font-semibold bg-warm-950 text-amber-200 border border-amber-900/50 hover:border-amber-600 transition flex items-center gap-2">
+          <i data-lucide="sun" class="w-4 h-4 text-amber-400"></i> Energizing Citrus
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Product Catalog Section -->
+  <section id="shop" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-20">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8 border-b border-amber-900/40 pb-6">
+      <div>
+        <h3 id="sectionTitle" class="font-serif text-3xl font-bold text-amber-100 editable-field" data-key="sectionTitle">Signature Candle Catalog</h3>
+        <p id="sectionDesc" class="text-xs text-warm-300 mt-1 editable-field" data-key="sectionDesc">Click any candle to open full multi-image flipkart-style detailed slide preview.</p>
+      </div>
+
+      <!-- Category Tabs -->
+      <div id="categoryContainer" class="flex flex-wrap gap-2">
+        <button onclick="filterCategory('all', this)" class="cat-btn active px-4 py-1.5 rounded-lg text-xs font-semibold bg-amber-800 text-white border border-amber-700 transition">All Candles</button>
+        <button onclick="filterCategory('Signature', this)" class="cat-btn px-4 py-1.5 rounded-lg text-xs font-semibold bg-warm-900 text-amber-200 border border-amber-900/40 hover:bg-amber-900/50 transition">Signature Scent</button>
+        <button onclick="filterCategory('Aromatherapy', this)" class="cat-btn px-4 py-1.5 rounded-lg text-xs font-semibold bg-warm-900 text-amber-200 border border-amber-900/40 hover:bg-amber-900/50 transition">Aromatherapy</button>
+        <button onclick="filterCategory('Seasonal', this)" class="cat-btn px-4 py-1.5 rounded-lg text-xs font-semibold bg-warm-900 text-amber-200 border border-amber-900/40 hover:bg-amber-900/50 transition">Seasonal Glow</button>
+        <button onclick="filterCategory('Pillars', this)" class="cat-btn px-4 py-1.5 rounded-lg text-xs font-semibold bg-warm-900 text-amber-200 border border-amber-900/40 hover:bg-amber-900/50 transition">Luxury Pillars</button>
+        <button onclick="filterCategory('Gift Sets', this)" class="cat-btn px-4 py-1.5 rounded-lg text-xs font-semibold bg-warm-900 text-amber-200 border border-amber-900/40 hover:bg-amber-900/50 transition">Gift Sets</button>
+      </div>
+    </div>
+
+    <!-- Product Grid (Dynamic Injection) -->
+    <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <!-- Injected Dynamically via JS -->
+    </div>
+  </section>
+
+  <!-- Limited Deal of the Day Showcase Section -->
+  <section id="deals" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+    <div class="relative rounded-3xl overflow-hidden border border-amber-800/40 bg-gradient-to-r from-amber-950 via-warm-900 to-warm-950 p-8 lg:p-12 shadow-2xl">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+        
+        <div class="space-y-6">
+          <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-950 text-rose-300 border border-rose-800 text-xs font-bold uppercase tracking-widest">
+            <i data-lucide="flame" class="w-3.5 h-3.5 text-rose-400"></i> Deal Of The Day
+          </span>
+
+          <h3 id="dealTitle" class="font-serif text-3xl sm:text-4xl font-bold text-amber-50 editable-field" data-key="dealTitle">
+            Royal Amber & Golden Vanilla Reserve
+          </h3>
+          <p id="dealDesc" class="text-xs sm:text-sm text-warm-300 leading-relaxed editable-field" data-key="dealDesc">
+            Limited release 3-wick 500g luxury frosted jar infused with rare golden amber resin and pure bourbon vanilla extract. Includes weighted metallic gold lid.
+          </p>
+
+          <!-- Countdown Timer -->
+          <div class="flex gap-4 items-center">
+            <div class="bg-warm-950 border border-amber-800/60 rounded-xl px-4 py-2.5 text-center min-w-[70px]">
+              <span id="timerHours" class="font-serif font-bold text-xl text-amber-400">08</span>
+              <span class="block text-[9px] uppercase tracking-wider text-warm-400">Hours</span>
+            </div>
+            <span class="text-amber-500 font-bold">:</span>
+            <div class="bg-warm-950 border border-amber-800/60 rounded-xl px-4 py-2.5 text-center min-w-[70px]">
+              <span id="timerMins" class="font-serif font-bold text-xl text-amber-400">42</span>
+              <span class="block text-[9px] uppercase tracking-wider text-warm-400">Mins</span>
+            </div>
+            <span class="text-amber-500 font-bold">:</span>
+            <div class="bg-warm-950 border border-amber-800/60 rounded-xl px-4 py-2.5 text-center min-w-[70px]">
+              <span id="timerSecs" class="font-serif font-bold text-xl text-amber-400">19</span>
+              <span class="block text-[9px] uppercase tracking-wider text-warm-400">Secs</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-4 pt-2">
+            <div class="text-left">
+              <span class="text-xs text-warm-400 line-through">₹2,499</span>
+              <p class="font-serif font-bold text-2xl text-amber-400">₹1,499</p>
+            </div>
+            <button onclick="addDealToCart()" class="px-6 py-3 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-semibold text-xs uppercase tracking-wider rounded-xl shadow-lg transition flex items-center gap-2">
+              <i data-lucide="shopping-bag" class="w-4 h-4"></i> Claim Deal Now
+            </button>
+          </div>
+        </div>
+
+        <div class="relative group aspect-4/3 rounded-2xl overflow-hidden border border-amber-800/50 shadow-xl">
+          <img id="dealImage" data-img-key="dealImage" src="https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=1000&q=80" alt="Deal Candle" class="w-full h-full object-cover transition duration-500 group-hover:scale-105">
+          <button onclick="triggerImageEdit('dealImage')" class="edit-img-btn absolute inset-0 bg-black/60 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 cursor-pointer">
+            <i data-lucide="camera" class="w-6 h-6 mb-1 text-amber-400"></i>
+            <span class="text-xs bg-warm-900/90 text-amber-200 px-3 py-1 rounded-full border border-amber-700">Change Deal Image</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Craftsmanship & Story Section -->
+  <section id="story" class="py-16 bg-warm-900/40 border-y border-amber-900/30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        
+        <div class="relative group aspect-4/3 rounded-2xl overflow-hidden border border-amber-800/40 shadow-2xl">
+          <img id="storyImage" data-img-key="storyImage" src="https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=1000&q=80" alt="Crafting Process" class="w-full h-full object-cover">
+          <button onclick="triggerImageEdit('storyImage')" class="edit-img-btn absolute inset-0 bg-black/60 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 cursor-pointer">
+            <i data-lucide="camera" class="w-6 h-6 mb-1 text-amber-400"></i>
+            <span class="text-xs bg-warm-900/90 text-amber-200 px-3 py-1 rounded-full border border-amber-700">Replace Craft Story Image</span>
+          </button>
+        </div>
+
+        <div class="space-y-6">
+          <span class="text-xs font-semibold uppercase tracking-widest text-amber-400">Our Heritage & Craft</span>
+          <h3 id="storyHeading" class="font-serif text-3xl sm:text-4xl font-bold text-amber-50 editable-field" data-key="storyHeading">
+            Slow-Poured In Small Batches With Uncompromising Quality.
+          </h3>
+          <p id="storyBody" class="text-xs sm:text-sm text-warm-300 leading-relaxed editable-field" data-key="storyBody">
+            Every Whispering Breeze candle is hand-poured in small artisanal batches. We source 100% renewable European soy wax, free of petroleum paraffin, phthalates, and synthetic dyes. Our wooden wicks are cut from FSC-certified sustainable timber to produce a clean burn and gentle crackle.
+          </p>
+
+          <div class="grid grid-cols-2 gap-4 pt-2">
+            <div class="border-l-2 border-amber-600 pl-4 space-y-1">
+              <span class="font-serif font-bold text-2xl text-amber-400">100%</span>
+              <p class="text-xs text-warm-400">Natural Essential Oils</p>
+            </div>
+            <div class="border-l-2 border-amber-600 pl-4 space-y-1">
+              <span class="font-serif font-bold text-2xl text-amber-400">50+ Hrs</span>
+              <p class="text-xs text-warm-400">Continuous Soot-Free Burn</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Customer Reviews & Testimonials Carousel -->
+  <section id="reviews" class="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center max-w-2xl mx-auto mb-12">
+      <span class="text-xs font-semibold uppercase tracking-widest text-amber-400">Customer Gratitude</span>
+      <h3 class="font-serif text-3xl font-bold text-amber-50 mt-1">Loved By Candle Enthusiasts</h3>
+      <p class="text-xs text-warm-300 mt-1">Read honest feedback from customers who transformed their homes with Whispering Breeze aromas.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      <!-- Review 1 -->
+      <div class="glass-card p-6 rounded-2xl space-y-4">
+        <div class="flex items-center gap-1 text-amber-400 text-xs">
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+        </div>
+        <p id="rev1Text" class="text-xs text-warm-200 leading-relaxed editable-field" data-key="rev1Text">
+          "The Velvet Vanilla & Amber scent literally fills my entire living room within 15 minutes of lighting! The wooden wick crackle is super calming during evening reading."
+        </p>
+        <div class="flex items-center gap-3 pt-2 border-t border-amber-900/30">
+          <div class="w-9 h-9 rounded-full bg-amber-800 flex items-center justify-center font-bold text-xs text-amber-100">R</div>
+          <div>
+            <h5 id="rev1Name" class="text-xs font-semibold text-amber-100 editable-field" data-key="rev1Name">Rhea Sharma</h5>
+            <span class="text-[10px] text-warm-400">Verified Buyer • Mumbai</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Review 2 -->
+      <div class="glass-card p-6 rounded-2xl space-y-4">
+        <div class="flex items-center gap-1 text-amber-400 text-xs">
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+        </div>
+        <p id="rev2Text" class="text-xs text-warm-200 leading-relaxed editable-field" data-key="rev2Text">
+          "The packaging felt like unboxing a high-end French luxury perfume. Smoked Cedarwood is hands down the best earthy candle I've ever owned."
+        </p>
+        <div class="flex items-center gap-3 pt-2 border-t border-amber-900/30">
+          <div class="w-9 h-9 rounded-full bg-amber-800 flex items-center justify-center font-bold text-xs text-amber-100">A</div>
+          <div>
+            <h5 id="rev2Name" class="text-xs font-semibold text-amber-100 editable-field" data-key="rev2Name">Aman Verma</h5>
+            <span class="text-[10px] text-warm-400">Verified Buyer • Bengaluru</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Review 3 -->
+      <div class="glass-card p-6 rounded-2xl space-y-4">
+        <div class="flex items-center gap-1 text-amber-400 text-xs">
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+        </div>
+        <p id="rev3Text" class="text-xs text-warm-200 leading-relaxed editable-field" data-key="rev3Text">
+          "Gifted the 3-piece set to my sister for her housewarming. She couldn't stop praising how long each jar burns without tunneling!"
+        </p>
+        <div class="flex items-center gap-3 pt-2 border-t border-amber-900/30">
+          <div class="w-9 h-9 rounded-full bg-amber-800 flex items-center justify-center font-bold text-xs text-amber-100">P</div>
+          <div>
+            <h5 id="rev3Name" class="text-xs font-semibold text-amber-100 editable-field" data-key="rev3Name">Priya Kapoor</h5>
+            <span class="text-[10px] text-warm-400">Verified Buyer • Delhi</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Newsletter Signup -->
+  <section class="bg-gradient-to-r from-amber-950 via-warm-900 to-amber-950 py-12 border-t border-amber-900/40">
+    <div class="max-w-4xl mx-auto px-4 text-center space-y-4">
+      <i data-lucide="mail" class="w-8 h-8 mx-auto text-amber-400"></i>
+      <h4 class="font-serif text-2xl font-bold text-amber-100">Join The Whispering Breeze Glow Club</h4>
+      <p class="text-xs text-warm-300 max-w-md mx-auto">Subscribe for secret VIP discounts, early access to seasonal drops, and aromatherapy tips.</p>
+      
+      <div class="flex max-w-md mx-auto gap-2">
+        <input type="email" placeholder="Enter your email address..." class="flex-1 px-4 py-2.5 rounded-xl bg-warm-950 border border-amber-900/60 text-xs text-warm-100 placeholder-warm-400 focus:outline-none focus:border-amber-500">
+        <button onclick="showToast('Thank you for subscribing to Whispering Breeze updates!')" class="px-5 py-2.5 bg-amber-700 hover:bg-amber-600 text-white rounded-xl text-xs font-semibold uppercase tracking-wider transition">
+          Subscribe
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-warm-950 text-warm-300 pt-14 pb-8 border-t border-amber-900/50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8 pb-10 border-b border-warm-900">
+      <div class="space-y-3">
+        <h4 class="font-serif text-2xl font-bold text-amber-100 editable-field" data-key="footerTitle">Whispering Breeze</h4>
+        <p class="text-xs text-warm-400 leading-relaxed editable-field" data-key="footerDesc">
+          Artisanal luxury candles crafted with pure organic soy wax, natural botanicals, and wood wicks.
+        </p>
+      </div>
+
+      <div>
+        <h5 class="text-xs font-semibold uppercase tracking-wider text-amber-400 mb-3">Shop Collections</h5>
+        <ul class="space-y-2 text-xs text-warm-300">
+          <li><a href="#shop" class="hover:text-amber-300 transition">Signature Aromas</a></li>
+          <li><a href="#shop" class="hover:text-amber-300 transition">Aromatherapy Range</a></li>
+          <li><a href="#shop" class="hover:text-amber-300 transition">Seasonal Glow Editions</a></li>
+          <li><a href="#shop" class="hover:text-amber-300 transition">Curated Gift Boxes</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h5 class="text-xs font-semibold uppercase tracking-wider text-amber-400 mb-3">Customer Care</h5>
+        <ul class="space-y-2 text-xs text-warm-300">
+          <li><a href="#" class="hover:text-amber-300 transition">Track Your Order</a></li>
+          <li><a href="#" class="hover:text-amber-300 transition">Shipping & Delivery Policy</a></li>
+          <li><a href="#" class="hover:text-amber-300 transition">Returns & Candle Care Guide</a></li>
+          <li><a href="#" class="hover:text-amber-300 transition">Jar Refill Program</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h5 class="text-xs font-semibold uppercase tracking-wider text-amber-400 mb-3">Store Location</h5>
+        <p class="text-xs text-warm-400 leading-relaxed">
+          Whispering Breeze Maison Studio<br>
+          Khan Market, New Delhi, India<br>
+          Email: Add your business email
+        </p>
+      </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex flex-col sm:flex-row justify-between items-center text-xs text-warm-400">
+      <p>© 2026 Whispering Breeze Candle Co. All rights reserved.</p>
+      <div class="flex gap-4 mt-3 sm:mt-0">
+        <a href="#" class="hover:text-amber-300">Privacy Policy</a>
+        <a href="#" class="hover:text-amber-300">Terms of Service</a>
+        <button onclick="openAdminLogin()" class="hover:text-amber-300">Admin Login</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- FLIPKART STYLE PRODUCT DETAIL MODAL WITH MULTIPLE IMAGE SLIDER -->
+  <div id="productDetailModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6 hidden">
+    <div class="bg-warm-900 border border-amber-800/50 rounded-3xl max-w-6xl w-full max-h-[94vh] overflow-y-auto shadow-2xl relative text-warm-100 flex flex-col md:flex-row overflow-hidden">
+      
+      <!-- Close Button -->
+      <button onclick="closeProductModal()" class="absolute top-4 right-4 z-20 bg-warm-950/80 hover:bg-warm-800 text-amber-200 p-2 rounded-full border border-amber-800/50 transition">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <!-- Left Side: Flipkart Style Image Gallery Slider -->
+      <div class="md:w-3/5 p-6 bg-warm-950 flex flex-col justify-between border-b md:border-b-0 md:border-r border-amber-900/40">
+        
+        <!-- Main Selected Image Preview -->
+        <div class="product-modal-main-image relative rounded-2xl overflow-hidden border border-amber-800/40 shadow-inner group bg-warm-900 mb-4">
+          <img id="modalMainImg" src="" alt="Product Preview" class="w-full h-full object-contain transition-all duration-300">
+          
+          <button id="btnModalImgEdit" onclick="triggerImageEditModalCurrent()" class="edit-img-btn absolute inset-0 bg-black/60 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer">
+            <i data-lucide="camera" class="w-8 h-8 mb-1 text-amber-400"></i>
+            <span class="text-xs bg-warm-900 text-amber-200 px-3 py-1 rounded-full border border-amber-700">Change Selected Photo</span>
+          </button>
+        </div>
+
+        <!-- Thumbnails Horizontal Carousel -->
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-amber-400">Product Image Gallery</span>
+            <button id="btnAddGalleryPhoto" onclick="addGalleryImageToCurrentProduct()" class="text-[10px] bg-amber-900 hover:bg-amber-800 text-amber-200 px-2 py-0.5 rounded border border-amber-700 flex items-center gap-1">
+              <i data-lucide="plus" class="w-3 h-3"></i> Add Photo
+            </button>
+          </div>
+
+          <div id="modalThumbnails" class="flex gap-2 overflow-x-auto pb-2">
+            <!-- Thumbnails injected via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Side: Product Information Panel -->
+      <div class="md:w-2/5 p-6 md:p-8 flex flex-col justify-between space-y-6">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <span id="modalCategory" class="px-3 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-800 text-[10px] font-bold uppercase tracking-wider">
+              Category
+            </span>
+            <div class="flex items-center gap-1 text-amber-400 text-xs">
+              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+              <span id="modalRating" class="font-bold text-amber-100">4.9</span>
+              <span id="modalReviews" class="text-warm-400 text-[10px]">(48 reviews)</span>
+            </div>
+          </div>
+
+          <h3 id="modalTitle" class="font-serif text-2xl md:text-3xl font-bold text-amber-50">
+            Candle Name
+          </h3>
+
+          <div class="flex items-baseline gap-3">
+            <span id="modalPrice" class="font-serif font-bold text-2xl text-amber-400">₹999</span>
+            <span class="text-xs text-warm-400">Includes all taxes & eco-packaging</span>
+          </div>
+
+          <p id="modalDesc" class="text-xs sm:text-sm text-warm-300 leading-relaxed">
+            Candle description text goes here...
+          </p>
+
+          <!-- Specifications List -->
+          <div class="bg-warm-950/80 p-4 rounded-xl border border-amber-900/30 text-xs space-y-2">
+            <div class="flex justify-between border-b border-amber-900/20 pb-1.5">
+              <span class="text-warm-400">Wax Composition:</span>
+              <span class="font-medium text-amber-200">100% Organic European Soy Wax</span>
+            </div>
+            <div class="flex justify-between border-b border-amber-900/20 pb-1.5">
+              <span class="text-warm-400">Wick Type:</span>
+              <span class="font-medium text-amber-200">Crackling Natural Wooden Wick</span>
+            </div>
+            <div class="flex justify-between border-b border-amber-900/20 pb-1.5">
+              <span class="text-warm-400">Burn Duration:</span>
+              <span class="font-medium text-amber-200">50 - 65 Hours Clean Burn</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-warm-400">Vessel Weight:</span>
+              <span class="font-medium text-amber-200">280g / 9.8 oz Frosted Glass</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quantity & Add to Cart Controls -->
+        <div class="space-y-4 pt-4 border-t border-amber-900/40">
+          <div class="flex items-center gap-4">
+            <span class="text-xs font-semibold text-warm-300">Quantity:</span>
+            <div class="flex items-center bg-warm-950 border border-amber-900/60 rounded-xl">
+              <button onclick="changeModalQty(-1)" class="px-3 py-1.5 text-amber-400 font-bold hover:bg-warm-800 rounded-l-xl">-</button>
+              <span id="modalQty" class="px-4 text-xs font-bold text-amber-100">1</span>
+              <button onclick="changeModalQty(1)" class="px-3 py-1.5 text-amber-400 font-bold hover:bg-warm-800 rounded-r-xl">+</button>
+            </div>
+          </div>
+
+          <div class="flex gap-3">
+            <button id="modalAddCartBtn" onclick="addCurrentModalToCart()" class="flex-1 py-3.5 bg-gradient-to-r from-amber-700 to-amber-800 hover:from-amber-600 hover:to-amber-700 text-white font-semibold text-xs uppercase tracking-wider rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+              <i data-lucide="shopping-bag" class="w-4 h-4"></i> Add To Cart
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ADD NEW CANDLE PRODUCT MODAL -->
+  <div id="addProductModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-warm-900 border border-amber-800/60 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-warm-100">
+      <div class="flex justify-between items-center border-b border-amber-900/40 pb-3">
+        <h3 id="productFormTitle" class="font-serif font-bold text-lg text-amber-100 flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-5 h-5 text-amber-400"></i> Add New Candle Product
+        </h3>
+        <button onclick="closeAddProductModal()" class="text-warm-400 hover:text-warm-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-amber-200 mb-1">Candle Title / Name</label>
+          <input type="text" id="newProdName" placeholder="e.g. Spiced Cinnamon & Vanilla" class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg text-warm-100 focus:outline-none focus:border-amber-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-amber-200 mb-1">Price (numeric)</label>
+            <input type="number" id="newProdPrice" placeholder="999" class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg text-warm-100 focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-amber-200 mb-1">Category</label>
+            <select id="newProdCategory" class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg text-warm-100 focus:outline-none focus:border-amber-500">
+              <option value="Signature">Signature Scent</option>
+              <option value="Aromatherapy">Aromatherapy</option>
+              <option value="Seasonal">Seasonal Glow</option>
+              <option value="Pillars">Luxury Pillars</option>
+              <option value="Gift Sets">Gift Sets</option>
+              <option value="Relaxation">Relaxation</option>
+              <option value="Woody">Woody & Earthy</option>
+              <option value="Floral">Floral</option>
+              <option value="Citrus">Citrus</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-amber-200 mb-1">Aroma Description</label>
+          <textarea id="newProdDesc" rows="3" placeholder="Fragrance notes and burn experience..." class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg text-warm-100 focus:outline-none focus:border-amber-500"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-amber-200 mb-1">Stock Quantity</label>
+            <input type="number" min="0" id="newProdStock" value="10" placeholder="10" class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg text-warm-100 focus:outline-none focus:border-amber-500">
+          </div>
+          <div class="flex items-end pb-2">
+            <label class="inline-flex items-center gap-2 text-amber-200">
+              <input type="checkbox" id="newProdActive" checked class="accent-amber-600"> Active / Visible
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-amber-200 mb-1">Main Image URL (optional)</label>
+          <input type="url" id="newProdImg" placeholder="https://images.unsplash.com/..." class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg text-warm-100 focus:outline-none focus:border-amber-500">
+        </div>
+        <div>
+          <label class="block font-semibold text-amber-200 mb-1">Upload Product Photos (multiple images)</label>
+          <input type="file" id="newProdImages" accept="image/*" multiple class="w-full text-xs text-warm-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-950 file:text-amber-300 hover:file:bg-amber-900 cursor-pointer">
+          <p class="text-[10px] text-warm-400 mt-1">New products require at least 3 photos. Images upload to the Supabase product-images bucket.</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-amber-900/40">
+        <button onclick="closeAddProductModal()" class="px-4 py-2 text-xs font-medium text-warm-300 bg-warm-950 rounded-lg">Cancel</button>
+        <button onclick="submitNewProduct()" class="px-4 py-2 text-xs font-semibold text-white bg-amber-700 hover:bg-amber-600 rounded-lg">Save Product</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shopping Cart Drawer -->
+  <div id="cartOverlay" onclick="toggleCartDrawer()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 opacity-0 pointer-events-none transition-opacity duration-300"></div>
+  <aside id="cartDrawer" class="fixed top-0 right-0 h-full w-full sm:w-96 bg-warm-900 border-l border-amber-900/50 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col text-warm-100">
+    
+    <div class="p-4 border-b border-amber-900/40 flex justify-between items-center bg-warm-950">
+      <div class="flex items-center gap-2">
+        <i data-lucide="shopping-bag" class="w-5 h-5 text-amber-400"></i>
+        <h3 class="font-serif font-bold text-lg text-amber-100">Your Candle Cart</h3>
+      </div>
+      <button onclick="toggleCartDrawer()" class="p-1.5 text-warm-300 hover:text-white rounded-full">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <div id="cartItemsList" class="flex-1 overflow-y-auto p-4 space-y-4">
+      <div class="text-center py-12 text-warm-400 text-xs">
+        Your cart is currently empty.
+      </div>
+    </div>
+
+    <div class="p-4 border-t border-amber-900/40 bg-warm-950 space-y-3">
+      <div class="flex justify-between text-sm font-semibold text-amber-100">
+        <span>Order Subtotal</span>
+        <span id="cartSubtotal" class="text-amber-400">₹0</span>
+      </div>
+      <div class="flex justify-between text-xs text-warm-300"><span>Shipping</span><span id="cartShipping">₹79</span></div>
+      <div class="flex justify-between text-sm font-bold text-amber-100 border-t border-amber-900/40 pt-2"><span>Estimated Total</span><span id="cartTotal" class="text-amber-400">₹0</span></div>
+      <button onclick="simulateCheckout()" class="w-full py-3.5 bg-gradient-to-r from-amber-700 to-amber-800 hover:from-amber-600 hover:to-amber-700 text-white font-semibold text-xs uppercase tracking-wider rounded-xl transition flex justify-center items-center gap-2 shadow-lg">
+        <span>Proceed To Secure Checkout</span>
+        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Image Upload / Replacement Modal -->
+  <div id="imageModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-warm-900 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-amber-800/60 text-warm-100">
+      <div class="flex justify-between items-center border-b border-amber-900/40 pb-3">
+        <h3 class="font-serif font-bold text-lg text-amber-100 flex items-center gap-2">
+          <i data-lucide="image" class="w-5 h-5 text-amber-400"></i> Replace Image Asset
+        </h3>
+        <button onclick="closeImageModal()" class="text-warm-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-amber-200 mb-1">Option 1: Upload File From Device</label>
+          <input type="file" id="imageFileInput" accept="image/*" class="w-full text-xs text-warm-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-950 file:text-amber-300 hover:file:bg-amber-900 cursor-pointer">
+        </div>
+
+        <div class="relative flex py-1 items-center">
+          <div class="flex-grow border-t border-amber-900/40"></div>
+          <span class="flex-shrink mx-3 text-[10px] text-warm-500 uppercase">OR</span>
+          <div class="flex-grow border-t border-amber-900/40"></div>
+        </div>
+
+        <p class="text-[10px] text-warm-400">Product photos are saved online in Supabase. Hero, Deal aur Craft section photos are saved only in this browser.</p>
+        <div>
+          <label class="block text-xs font-semibold text-amber-200 mb-1">Option 2: Direct Image URL</label>
+          <input type="url" id="imageUrlInput" placeholder="https://images.unsplash.com/..." class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg text-xs text-warm-100 focus:outline-none focus:border-amber-500">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeImageModal()" class="px-4 py-2 text-xs font-medium text-warm-300 bg-warm-950 rounded-lg">Cancel</button>
+        <button onclick="applyImageChange()" class="px-4 py-2 text-xs font-semibold text-white bg-amber-700 hover:bg-amber-600 rounded-lg">Apply New Image</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ADMIN LOGIN MODAL -->
+  <div id="adminLoginModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[70] flex items-center justify-center p-4 hidden">
+    <div class="bg-warm-900 border border-amber-800/60 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-warm-100">
+      <div class="flex justify-between items-center border-b border-amber-900/40 pb-3">
+        <h3 class="font-serif font-bold text-lg text-amber-100">Whispering Breeze Admin Login</h3>
+        <button onclick="closeAdminLogin()" class="text-warm-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <p class="text-xs text-warm-300">Store products manage karne ke liye admin email aur password se sign in karein.</p>
+      <div><label class="block text-xs font-semibold text-amber-200 mb-1">Admin Email</label><input type="email" id="adminEmail" autocomplete="username" class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg text-xs text-warm-100 focus:outline-none focus:border-amber-500" placeholder="Admin email"></div>
+      <div><label class="block text-xs font-semibold text-amber-200 mb-1">Password</label><input type="password" id="adminPassword" autocomplete="current-password" class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg text-xs text-warm-100 focus:outline-none focus:border-amber-500" placeholder="Password"></div>
+      <div class="flex justify-end gap-2 pt-2"><button onclick="closeAdminLogin()" class="px-4 py-2 text-xs text-warm-300 bg-warm-950 rounded-lg">Cancel</button><button id="adminLoginButton" onclick="adminLogin()" class="px-4 py-2 text-xs font-semibold text-white bg-amber-700 hover:bg-amber-600 rounded-lg">Login</button></div>
+    </div>
+  </div>
+
+  <!-- CUSTOMER DETAILS / WHATSAPP CHECKOUT MODAL -->
+  <div id="checkoutModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[70] flex items-center justify-center p-4 hidden">
+    <div class="bg-warm-900 border border-amber-800/60 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-warm-100 max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b border-amber-900/40 pb-3"><h3 class="font-serif font-bold text-lg text-amber-100">Delivery Details</h3><button onclick="closeCheckoutModal()" class="text-warm-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+      <p class="text-xs text-warm-300">Details submit karne par aapka order WhatsApp message ke roop mein store ko bheja jayega. Payment/order confirmation WhatsApp par seller se milegi.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div><label class="block text-amber-200 font-semibold mb-1">Full Name</label><input id="customerName" type="text" autocomplete="name" class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg" placeholder="Your name"></div>
+        <div><label class="block text-amber-200 font-semibold mb-1">Mobile Number</label><input id="customerPhone" type="tel" autocomplete="tel" maxlength="10" class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg" placeholder="10-digit mobile number"></div>
+        <div class="sm:col-span-2"><label class="block text-amber-200 font-semibold mb-1">Full Delivery Address</label><textarea id="customerAddress" rows="2" autocomplete="street-address" class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg" placeholder="House no., street, area"></textarea></div>
+        <div><label class="block text-amber-200 font-semibold mb-1">City</label><input id="customerCity" type="text" autocomplete="address-level2" class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg" placeholder="City"></div>
+        <div><label class="block text-amber-200 font-semibold mb-1">PIN Code</label><input id="customerPincode" type="text" inputmode="numeric" maxlength="6" autocomplete="postal-code" class="w-full px-3 py-2 bg-warm-950 border border-amber-900/60 rounded-lg" placeholder="6-digit PIN code"></div>
+      </div>
+      <div class="bg-warm-950 rounded-xl border border-amber-900/40 p-3 text-xs space-y-2"><div class="flex justify-between"><span class="text-warm-300">Subtotal</span><span id="checkoutSubtotal" class="text-amber-100">₹0</span></div><div class="flex justify-between"><span class="text-warm-300">Shipping</span><span id="checkoutShipping" class="text-amber-100">₹79</span></div><div class="flex justify-between border-t border-amber-900/40 pt-2 font-bold"><span class="text-amber-100">Estimated Total</span><span id="checkoutTotal" class="text-amber-400">₹0</span></div></div>
+      <div class="flex justify-end gap-2"><button onclick="closeCheckoutModal()" class="px-4 py-2 text-xs text-warm-300 bg-warm-950 rounded-lg">Back</button><button onclick="sendWhatsAppOrder()" class="px-4 py-2 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-600 rounded-lg flex items-center gap-2"><i data-lucide="message-circle" class="w-4 h-4"></i> Send Order on WhatsApp</button></div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 bg-warm-900 text-amber-50 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none border border-amber-800">
+    <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i>
+    <span id="toastMessage" class="text-xs font-medium">Notification message</span>
+  </div>
+
+  <!-- JavaScript App Logic -->
+  <script>
+    // Initial Catalog of 12 Luxury Candle Products
+    const defaultProducts = [
+      {
+        id: "p1",
+        name: "Velvet Vanilla & Amber",
+        category: "Signature",
+        scentNote: "Relaxation",
+        price: 899,
+        rating: 4.9,
+        reviews: 42,
+        desc: "Rich Madagascar vanilla pod layered with warm glowing amber tones and cracked wooden wick.",
+        img: "https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=600&q=80",
+        gallery: [
+          "https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=600&q=80",
+          "https://images.unsplash.com/photo-1508672019048-805479767c13?auto=format&fit=crop&w=600&q=80",
+          "https://images.unsplash.com/photo-1572726729207-a78d6fea3080?auto=format&fit=crop&w=600&q=80"
+        ]
+      },
+      {
+        id: "p2",
+        name: "French Lavender & Sage",
+        category: "Aromatherapy",
+        scentNote: "Relaxation",
+        price: 949,
+        rating: 4.8,
+        reviews: 38,
+        desc: "Calming wild Provence lavender blossoms balanced with soothing organic white sage leaves.",
+        img: "https://images.unsplash.com/photo-1572726729207-a78d6fea3080?auto=format&fit=crop&w=600&q=80",
+        gallery: [
+          "https://images.unsplash.com/photo-1572726729207-a78d6fea3080?auto=format&fit=crop&w=600&q=80",
+          "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=600&q=80"
+        ]
+      },
+      {
+        id: "p3",
+        name: "Smoked Cedarwood & Pine",
+        category: "Signature",
+        scentNote: "Woody",
+        price: 999,
+        rating: 5.0,
+        reviews: 56,
+        desc: "Deep cedar wood resin, charred balsam fir, and a warm hint of ground cardamom spice.",
+        img: "https://images.unsplash.com/photo-1508672019048-805479767c13?auto=format&fit=crop&w=600&q=80",
+        gallery: [
+          "https://images.unsplash.com/photo-1508672019048-805479767c13?auto=format&fit=crop&w=600&q=80",
+          "https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=600&q=80"
+        ]
+      },
+      {
+        id: "p4",
+        name: "Wild Rose & Peony Petals",
+        category: "Floral",
+        scentNote: "Floral",
+        price: 849,
+        rating: 4.7,
+        reviews: 29,
+        desc: "Fresh morning dew rosebuds blended with sweet blooming blush peony bouquet.",
+        img: "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=600&q=80",
+        gallery: [
+          "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=600&q=80"
+        ]
+      },
+      {
+        id: "p5",
+        name: "Sicilian Bergamot Citrus",
+        category: "Seasonal",
+        scentNote: "Citrus",
+        price: 799,
+        rating: 4.9,
+        reviews: 64,
+        desc: "Zesty sun-ripened Italian bergamot, crisp ruby grapefruit, and fresh lemon zest.",
+        img: "https://images.unsplash.com/photo-1595425970377-c9703cf48b6d?auto=format&fit=crop&w=600&q=80",
+        gallery: [
+          "https://images.unsplash.com/photo-1595425970377-c9703cf48b6d?auto=format&fit=crop&w=600&q=80"
+        ]
+      },
+      {
+        id: "p6",
+        name: "Eucalyptus & Spearmint Spa",
+        category: "Aromatherapy",
+        scentNote: "Relaxation",
+        price: 899,
+        rating: 4.8,
+        reviews: 31,
+        desc: "Revitalizing blue eucalyptus leaf infused with cooling garden spearmint steam.",
+        img: "https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=600&q=80",
+        gallery: [
+          "https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=600&q=80"
+        ]
+      },
+      {
+        id: "p7",
+        name: "Mahogany Teakwood Reserve",
+        category: "Signature",
+        scentNote: "Woody",
+        price: 1199,
+        rating: 4.9,
+        reviews: 83,
+        desc: "Rich dark mahogany wood timber intertwined with fine teakwood and dark oak moss.",
+        img: "https://images.unsplash.com/photo-1508672019048-805479767c13?auto=format&fit=crop&w=600&q=80",
+        gallery: ["https://images.unsplash.com/photo-1508672019048-805479767c13?auto=format&fit=crop&w=600&q=80"]
+      },
+      {
+        id: "p8",
+        name: "Artisanal Ribbed Pillar Trio",
+        category: "Pillars",
+        scentNote: "Relaxation",
+        price: 1399,
+        rating: 4.8,
+        reviews: 21,
+        desc: "Hand-sculpted set of 3 unscented ribbed pillar candles for elegant dining decor.",
+        img: "https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=600&q=80",
+        gallery: ["https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=600&q=80"]
+      },
+      {
+        id: "p9",
+        name: "Spiced Pumpkin & Cinnamon",
+        category: "Seasonal",
+        scentNote: "Woody",
+        price: 899,
+        rating: 4.9,
+        reviews: 45,
+        desc: "Warm roasted pumpkin puree blended with ground nutmeg, clove buds, and dark cinnamon.",
+        img: "https://images.unsplash.com/photo-1572726729207-a78d6fea3080?auto=format&fit=crop&w=600&q=80",
+        gallery: ["https://images.unsplash.com/photo-1572726729207-a78d6fea3080?auto=format&fit=crop&w=600&q=80"]
+      },
+      {
+        id: "p10",
+        name: "Royal Sanctuary Gift Box",
+        category: "Gift Sets",
+        scentNote: "Relaxation",
+        price: 2199,
+        rating: 5.0,
+        reviews: 94,
+        desc: "Deluxe gift hamper containing 3 best-seller mini candles, golden wick trimmer, and matches.",
+        img: "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=600&q=80",
+        gallery: ["https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=600&q=80"]
+      },
+      {
+        id: "p11",
+        name: "Midnight Jasmine & Fig",
+        category: "Aromatherapy",
+        scentNote: "Floral",
+        price: 949,
+        rating: 4.7,
+        reviews: 19,
+        desc: "Exotic night-blooming jasmine flowers paired with sweet Mediterranean wild fig pulp.",
+        img: "https://images.unsplash.com/photo-1595425970377-c9703cf48b6d?auto=format&fit=crop&w=600&q=80",
+        gallery: ["https://images.unsplash.com/photo-1595425970377-c9703cf48b6d?auto=format&fit=crop&w=600&q=80"]
+      },
+      {
+        id: "p12",
+        name: "Golden Sandalwood & Myrrh",
+        category: "Signature",
+        scentNote: "Woody",
+        price: 1099,
+        rating: 4.9,
+        reviews: 37,
+        desc: "Sacred Mysore sandalwood paste infused with golden frankincense and rich myrrh resin.",
+        img: "https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=600&q=80",
+        gallery: ["https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=600&q=80"]
+      }
+    ];
+
+    // Supabase configuration: publishable key is safe for browser use when RLS is enabled.
+    const SUPABASE_URL = "https://dhiijvgpqaolksifwbbm.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_waOqA-Rv7d6WcLGQhITGaQ_4D1zqUg0";
+    const ADMIN_USER_ID = "80589cd4-a95d-4735-a446-a555de477bc9";
+    const STORAGE_BUCKET = "product-images";
+    const ORIGINAL_DEFAULT_PRODUCT_IMAGE_URL = "https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=600&q=80";
+    const WHATSAPP_NUMBER = '919876543210'; // Replace with your business WhatsApp number including country code.
+    const SHIPPING_FLAT = 79;
+    const FREE_SHIPPING_LIMIT = 1499;
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentMode = 'preview';
+    let currentCurrency = '₹';
+    let currentCategory = 'all';
+    let products = [];
+    let cart = [];
+    let currentEditingImgId = null;
+    let currentImgGalleryTarget = null;
+    let activeModalProduct = null;
+    let activeModalSelectedImgIndex = 0;
+    let activeModalQty = 1;
+    let editingProductId = null;
+    let isAdmin = false;
+    let usingFallbackProducts = false;
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      document.getElementById('adminToolbar').classList.add('hidden');
+      loadStoreData();
+      products = JSON.parse(JSON.stringify(defaultProducts)).map(p => ({...p, stock: 999, is_active: true, _source: 'demo'}));
+      renderProducts();
+      initIcons();
+      setupTextEditableListeners();
+      startCountdownTimer();
+      await initializeBackend();
+    });
+
+    function initIcons() {
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function updateNavOffset() {
+      const toolbar = document.getElementById('adminToolbar');
+      const nav = document.querySelector('nav');
+      if (!nav) return;
+      nav.style.top = isAdmin && toolbar && !toolbar.classList.contains('hidden') ? `${toolbar.offsetHeight}px` : '0px';
+    }
+
+    window.addEventListener('resize', updateNavOffset);
+
+    function escapeHTML(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+
+    function loadStoreData() {
+      // Keep legacy keys so previously saved local customizations are not lost.
+      const savedTexts = JSON.parse(localStorage.getItem('lumiere_text_content_v2') || '{}');
+      document.querySelectorAll('.editable-field').forEach(el => {
+        const key = el.getAttribute('data-key');
+        if (key && savedTexts[key]) {
+          const oldText = String(savedTexts[key]);
+          el.innerText = oldText.replace(/LUMIÈRE|Lumière|Lumiere/g, 'Whispering Breeze');
+        }
+      });
+      // Enforce the requested brand name even if an older browser copy stored LUMIÈRE.
+      const brand = document.getElementById('storeTitle');
+      const footerBrand = document.querySelector('[data-key="footerTitle"]');
+      if (brand) brand.innerText = 'Whispering Breeze';
+      if (footerBrand) footerBrand.innerText = 'Whispering Breeze';
+
+      const savedImgs = JSON.parse(localStorage.getItem('lumiere_img_content_v2') || '{}');
+      document.querySelectorAll('img[data-img-key]').forEach(img => {
+        const key = img.getAttribute('data-img-key');
+        if (key && savedImgs[key]) img.src = savedImgs[key];
+      });
+    }
+
+    async function initializeBackend() {
+      try {
+        const { data, error } = await db.auth.getSession();
+        if (error) throw error;
+        const session = data?.session;
+        if (session?.user?.id === ADMIN_USER_ID) {
+          await activateAdmin(session.user);
+        } else {
+          if (session?.user) await db.auth.signOut();
+          await loadPublicProducts();
+        }
+  
+      } catch (error) {
+        console.error('Supabase initialization error:', error);
+        usingFallbackProducts = true;
+        products = JSON.parse(JSON.stringify(defaultProducts)).map(p => ({...p, stock: 999, is_active: true, _source: 'demo'}));
+        renderProducts();
+        showToast('Online catalog connect nahi hua. Demo products dikh rahe hain.');
+      }
+    }
+
+    function mapDatabaseProduct(row) {
+      const gallery = Array.isArray(row.image_urls) ? row.image_urls.filter(Boolean) : [];
+      const mainImage = row.image_url || gallery[0] || '';
+      const images = [...new Set([mainImage, ...gallery].filter(Boolean))];
+      return {
+        id: String(row.id),
+        name: row.name || 'Candle',
+        description: row.description || '',
+        desc: row.description || '',
+        price: Number(row.price || 0),
+        category: row.category || 'Signature',
+        scentNote: row.category || '',
+        stock: Number(row.stock ?? 0),
+        img: mainImage,
+        gallery: images.length ? images : [mainImage],
+        is_active: row.is_active !== false,
+        rating: null,
+        reviews: null,
+        _source: 'supabase'
+      };
+    }
+
+    async function loadPublicProducts() {
+      try {
+        const { data, error } = await db.from('products').select('*').eq('is_active', true).order('created_at', {ascending: false});
+        if (error) throw error;
+        usingFallbackProducts = false;
+        products = (data || []).map(mapDatabaseProduct);
+        renderProducts('all', document.getElementById('searchInput')?.value || '');
+        if (!products.length) showToast('Catalog ready. Abhi koi active product publish nahi hai.');
+      } catch (error) {
+        console.error('Public product load error:', error);
+        usingFallbackProducts = true;
+        products = JSON.parse(JSON.stringify(defaultProducts)).map(p => ({...p, stock: 999, is_active: true, _source: 'demo'}));
+        renderProducts();
+        showToast('Database load nahi hua; sample demo catalog dikhaya ja raha hai.');
+      }
+    }
+
+    async function loadAdminProducts() {
+      const { data, error } = await db.from('products').select('*').order('created_at', {ascending: false});
+      if (error) throw error;
+      products = (data || []).map(mapDatabaseProduct);
+      renderProducts(currentCategory, document.getElementById('searchInput')?.value || '');
+    }
+
+    async function activateAdmin(user) {
+      if (!user || user.id !== ADMIN_USER_ID) return;
+      isAdmin = true;
+      document.getElementById('adminToolbar').classList.remove('hidden');
+      updateNavOffset();
+      currentMode = 'edit';
+      document.body.classList.remove('preview-mode');
+      try {
+        await loadAdminProducts();
+        setupTextEditableListeners();
+        showToast('Admin login successful. Store management enabled.');
+      } catch (error) {
+        console.error('Admin catalog error:', error);
+        showToast('Admin login hua, lekin products load nahi hue. RLS/table settings check karein.');
+      }
+    }
+
+    function openAdminLogin() {
+      document.getElementById('adminLoginModal').classList.remove('hidden');
+      initIcons();
+    }
+    function closeAdminLogin() {
+      document.getElementById('adminLoginModal').classList.add('hidden');
+    }
+
+
+    async function adminLogin() {
+      const email = document.getElementById('adminEmail').value.trim();
+      const password = document.getElementById('adminPassword').value;
+      if (!email || !password) { alert('Admin email aur password enter karein.'); return; }
+      const button = document.getElementById('adminLoginButton');
+      button.disabled = true;
+      button.innerText = 'Please wait...';
+      try {
+        const { data, error } = await db.auth.signInWithPassword({email, password});
+        if (error) throw error;
+        if (data.user?.id !== ADMIN_USER_ID) {
+          await db.auth.signOut();
+          throw new Error('This account is not authorized as the store admin.');
+        }
+        closeAdminLogin();
+        document.getElementById('adminPassword').value = '';
+        await activateAdmin(data.user);
+      } catch (error) {
+        console.error('Admin login error:', error);
+        alert('Login nahi hua: ' + (error.message || 'Please check credentials and Supabase Auth settings.'));
+      } finally {
+        button.disabled = false;
+        button.innerText = 'Login';
+      }
+    }
+
+    async function adminLogout() {
+      try { await db.auth.signOut(); } catch (error) { console.error(error); }
+      isAdmin = false;
+      currentMode = 'preview';
+      document.getElementById('adminToolbar').classList.add('hidden');
+      updateNavOffset();
+      document.body.classList.add('preview-mode');
+      await loadPublicProducts();
+      showToast('Admin logged out. Public store view restored.');
+    }
+
+    function saveStoreData() {
+      if (!isAdmin) { showToast('Store changes save karne ke liye admin login karein.'); return; }
+      const textData = {};
+      document.querySelectorAll('.editable-field').forEach(el => {
+        const key = el.getAttribute('data-key');
+        if (key) textData[key] = el.innerText;
+      });
+      localStorage.setItem('lumiere_text_content_v2', JSON.stringify(textData));
+      const imgData = {};
+      document.querySelectorAll('img[data-img-key]').forEach(img => {
+        const key = img.getAttribute('data-img-key');
+        if (key) imgData[key] = img.src;
+      });
+      localStorage.setItem('lumiere_img_content_v2', JSON.stringify(imgData));
+      showToast('Text and section image changes saved in this browser. Product data is saved online in Supabase.');
+    }
+
+    function resetStoreData() {
+      if (!isAdmin) return;
+      if (confirm('Reset locally saved text and section images to the original defaults? Supabase products will NOT be deleted.')) {
+        localStorage.removeItem('lumiere_text_content_v2');
+        localStorage.removeItem('lumiere_img_content_v2');
+        location.reload();
+      }
+    }
+
+    function setMode(mode) {
+      if (!isAdmin) { showToast('Edit Mode ke liye admin login zaroori hai.'); return; }
+      currentMode = mode;
+      const btnEdit = document.getElementById('btnModeEdit');
+      const btnPreview = document.getElementById('btnModePreview');
+      if (mode === 'preview') {
+        document.body.classList.add('preview-mode');
+        btnEdit.className = 'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-warm-200 hover:text-white transition';
+        btnPreview.className = 'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium bg-amber-700 text-white shadow-sm transition';
+      } else {
+        document.body.classList.remove('preview-mode');
+        btnPreview.className = 'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-warm-200 hover:text-white transition';
+        btnEdit.className = 'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium bg-amber-700 text-white shadow-sm transition';
+      }
+      setupTextEditableListeners();
+      renderProducts(currentCategory);
+    }
+
+    function setupTextEditableListeners() {
+      document.querySelectorAll('.edit-img-btn').forEach(btn => {
+        btn.classList.toggle('hidden', !(isAdmin && currentMode === 'edit'));
+      });
+      document.querySelectorAll('.editable-field').forEach(el => {
+        if (isAdmin && currentMode === 'edit') {
+          el.contentEditable = 'true';
+          el.classList.add('editable-highlight');
+        } else {
+          el.contentEditable = 'false';
+          el.classList.remove('editable-highlight');
+        }
+      });
+    }
+
+    function renderProducts(catFilter = 'all', searchQuery = '') {
+      currentCategory = catFilter;
+      const grid = document.getElementById('productGrid');
+      grid.innerHTML = '';
+      const filtered = products.filter(p => {
+        const category = String(p.category || '').toLowerCase();
+        const note = String(p.scentNote || '').toLowerCase();
+        const matchesCat = catFilter === 'all' || category === String(catFilter).toLowerCase() || note === String(catFilter).toLowerCase();
+        const matchesSearch = String(p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || String(p.desc || p.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesCat && matchesSearch && (isAdmin || p.is_active !== false);
+      });
+      if (!filtered.length) {
+        grid.innerHTML = `<div class="col-span-full text-center py-16 text-warm-400 text-sm">No candle products found for this category/search.</div>`;
+        return;
+      }
+      filtered.forEach(product => {
+        const id = escapeHTML(product.id);
+        const name = escapeHTML(product.name);
+        const desc = escapeHTML(product.desc || product.description || '');
+        const category = escapeHTML(product.category || 'Signature');
+        const img = escapeHTML(product.img || '');
+        const ratingBlock = product.rating != null && product.reviews != null ? `
+          <div class="flex items-center gap-1 text-amber-400 text-xs mb-1"><i data-lucide="star" class="w-3.5 h-3.5 fill-amber-400"></i><span class="font-bold text-amber-100">${escapeHTML(product.rating)}</span><span class="text-warm-400 text-[10px]">(${escapeHTML(product.reviews)})</span></div>` : '';
+        const canManageProduct = isAdmin && currentMode === 'edit' && product._source === 'supabase';
+        const adminButtons = canManageProduct ? `
+          <button onclick="event.stopPropagation(); editProduct('${id}')" class="p-2 bg-warm-950 hover:bg-amber-950 text-amber-300 rounded-xl border border-amber-900/60 transition" title="Edit product"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+          <button onclick="event.stopPropagation(); deleteProduct('${id}')" class="p-2 bg-warm-950 hover:bg-rose-950 text-rose-300 rounded-xl border border-amber-900/60 transition" title="Delete product"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : '';
+        const stockBadge = isAdmin ? `<span class="absolute bottom-3 left-3 bg-warm-950/90 text-amber-200 text-[10px] px-2 py-1 rounded-full border border-amber-800/60">Stock: ${Number(product.stock || 0)}${product.is_active === false ? ' • Hidden' : ''}</span>` : '';
+        const card = document.createElement('div');
+        card.className = 'bg-warm-900 rounded-2xl overflow-hidden border border-amber-900/40 shadow-lg hover:shadow-2xl hover:border-amber-700/60 transition duration-300 flex flex-col group cursor-pointer';
+        card.innerHTML = `
+          <div class="product-card-media relative overflow-hidden bg-warm-950" onclick="openProductModal('${id}')">
+            <img id="prod_img_${id}" data-img-key="prod_img_${id}" src="${img}" alt="${name}" class="w-full h-full object-contain transition duration-700 group-hover:scale-[1.03]">
+            ${canManageProduct ? `<button onclick="event.stopPropagation(); triggerImageEdit('prod_img_${id}', '${id}')" class="edit-img-btn absolute top-3 right-3 bg-warm-950/90 text-amber-300 p-2 rounded-full border border-amber-800 opacity-0 group-hover:opacity-100 transition-opacity z-20 cursor-pointer" title="Swap Card Photo"><i data-lucide="camera" class="w-4 h-4"></i></button>` : ''}
+            <span class="absolute top-3 left-3 bg-warm-950/90 backdrop-blur-md text-amber-400 text-[10px] font-bold px-2.5 py-1 rounded-full border border-amber-800/60">${category}</span>
+            ${stockBadge}
+          </div>
+          <div class="p-5 flex-1 flex flex-col justify-between space-y-3" onclick="openProductModal('${id}')">
+            <div>${ratingBlock}
+              <h4 id="prod_title_${id}" data-key="prod_title_${id}" class="editable-field font-serif font-bold text-base text-amber-100 leading-snug" onclick="event.stopPropagation()" onblur="updateProductData('${id}', 'name', this.innerText)">${name}</h4>
+              <p id="prod_desc_${id}" data-key="prod_desc_${id}" class="editable-field text-xs text-warm-300 mt-1.5 leading-relaxed line-clamp-2" onclick="event.stopPropagation()" onblur="updateProductData('${id}', 'desc', this.innerText)">${desc}</p>
+            </div>
+            <div class="pt-3 border-t border-amber-900/30 flex items-center justify-between gap-2" onclick="event.stopPropagation()">
+              <span class="font-serif font-bold text-lg text-amber-400">${currentCurrency}<span id="prod_price_${id}" data-key="prod_price_${id}" class="editable-field" onblur="updateProductData('${id}', 'price', this.innerText)">${Number(product.price || 0)}</span></span>
+              <div class="flex items-center gap-2">${adminButtons}
+                <button onclick="openProductModal('${id}')" class="p-2 bg-warm-950 hover:bg-warm-800 text-amber-300 rounded-xl border border-amber-900/60 transition" title="View product details"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                <button onclick="addToCart('${id}')" class="px-3 py-2 bg-amber-800 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1"><i data-lucide="shopping-bag" class="w-3.5 h-3.5"></i> Add</button>
+              </div>
+            </div>
+          </div>`;
+        grid.appendChild(card);
+      });
+      initIcons();
+      setupTextEditableListeners();
+    }
+
+    async function updateProductData(id, key, val) {
+      const prod = products.find(p => String(p.id) === String(id));
+      if (!prod || !isAdmin) return;
+      if (key === 'price') prod.price = parseFloat(val) || prod.price;
+      else if (key === 'name') prod.name = val.trim();
+      else if (key === 'desc') { prod.desc = val.trim(); prod.description = val.trim(); }
+      if (prod._source === 'supabase') {
+        const payload = key === 'price' ? {price:prod.price} : key === 'name' ? {name:prod.name} : {description:prod.desc};
+        const {error} = await db.from('products').update(payload).eq('id', prod.id);
+        if (error) { console.error(error); showToast('Product update failed: ' + error.message); }
+      }
+    }
+
+    function filterCategory(cat, btn) {
+      document.querySelectorAll('.cat-btn').forEach(b => { b.classList.remove('bg-amber-800','text-white'); b.classList.add('bg-warm-900','text-amber-200'); });
+      btn.classList.remove('bg-warm-900','text-amber-200'); btn.classList.add('bg-amber-800','text-white');
+      renderProducts(cat, document.getElementById('searchInput').value);
+    }
+
+    function filterByNote(note, btn) {
+      document.querySelectorAll('.scent-note-btn').forEach(b => { b.classList.remove('bg-amber-800','text-white'); b.classList.add('bg-warm-950','text-amber-200'); });
+      btn.classList.remove('bg-warm-950','text-amber-200'); btn.classList.add('bg-amber-800','text-white');
+      renderProducts(note, document.getElementById('searchInput').value);
+    }
+
+    function filterProducts() { renderProducts(currentCategory, document.getElementById('searchInput').value); }
+    function changeCurrency(symbol) { currentCurrency = symbol; renderProducts(currentCategory, document.getElementById('searchInput').value); updateCartUI(); }
+
+    function addDealToCart() {
+      const dealProduct = products.find(p => String(p.id) === 'p1') || products[0];
+      if (dealProduct) addToCart(dealProduct.id);
+      else showToast('Abhi deal ke liye product available nahi hai.');
+    }
+
+    function openProductModal(productId) {
+      const prod = products.find(p => String(p.id) === String(productId));
+      if (!prod) return;
+      activeModalProduct = prod;
+      activeModalSelectedImgIndex = 0;
+      activeModalQty = 1;
+      document.getElementById('modalTitle').innerText = prod.name;
+      document.getElementById('modalCategory').innerText = prod.category || 'Candle';
+      document.getElementById('modalPrice').innerText = `${currentCurrency}${Number(prod.price || 0).toLocaleString()}`;
+      document.getElementById('modalDesc').innerText = prod.desc || prod.description || '';
+      document.getElementById('modalQty').innerText = activeModalQty;
+      const ratingRow = document.getElementById('modalRating').parentElement;
+      if (prod.rating != null && prod.reviews != null) {
+        ratingRow.classList.remove('hidden');
+        document.getElementById('modalRating').innerText = prod.rating;
+        document.getElementById('modalReviews').innerText = `(${prod.reviews} reviews)`;
+      } else {
+        ratingRow.classList.add('hidden');
+      }
+      renderModalGallery();
+      document.getElementById('productDetailModal').classList.remove('hidden');
+      initIcons();
+    }
+
+    function closeProductModal() { document.getElementById('productDetailModal').classList.add('hidden'); }
+
+    function renderModalGallery() {
+      if (!activeModalProduct) return;
+      const gallery = activeModalProduct.gallery?.length ? activeModalProduct.gallery : [activeModalProduct.img];
+      const mainImgEl = document.getElementById('modalMainImg');
+      mainImgEl.src = gallery[activeModalSelectedImgIndex] || activeModalProduct.img || '';
+      const thumbsContainer = document.getElementById('modalThumbnails');
+      thumbsContainer.innerHTML = '';
+      gallery.forEach((imgUrl, idx) => {
+        const thumb = document.createElement('button');
+        thumb.type = 'button';
+        thumb.className = `relative w-20 h-20 rounded-xl overflow-hidden border-2 cursor-pointer flex-shrink-0 transition bg-warm-900 ${idx === activeModalSelectedImgIndex ? 'border-amber-500 shadow-lg' : 'border-amber-900/40 opacity-70 hover:opacity-100'}`;
+        thumb.onclick = () => { activeModalSelectedImgIndex = idx; renderModalGallery(); };
+        thumb.innerHTML = `<img src="${escapeHTML(imgUrl)}" alt="Product image ${idx+1}" class="w-full h-full object-contain p-1">`;
+        thumbsContainer.appendChild(thumb);
+      });
+      const canEditActiveProduct = isAdmin && currentMode === 'edit' && activeModalProduct._source === 'supabase';
+      const editBtn = document.getElementById('btnModalImgEdit');
+      if (editBtn) editBtn.classList.toggle('hidden', !canEditActiveProduct);
+      const addPhotoBtn = document.getElementById('btnAddGalleryPhoto');
+      if (addPhotoBtn) addPhotoBtn.classList.toggle('hidden', !canEditActiveProduct);
+    }
+
+    function changeModalQty(delta) {
+      if (!activeModalProduct) return;
+      const maxStock = Number(activeModalProduct.stock ?? 999);
+      activeModalQty = Math.max(1, Math.min(maxStock || 1, activeModalQty + delta));
+      document.getElementById('modalQty').innerText = activeModalQty;
+    }
+
+    function addCurrentModalToCart() {
+      if (!activeModalProduct) return;
+      addToCart(activeModalProduct.id, activeModalQty);
+      closeProductModal();
+    }
+
+    async function addGalleryImageToCurrentProduct() {
+      if (!isAdmin || currentMode !== 'edit' || !activeModalProduct || activeModalProduct._source !== 'supabase') return;
+      const newUrl = prompt('Enter image URL for new gallery photo:');
+      if (!newUrl || !newUrl.trim()) return;
+      if (!activeModalProduct.gallery) activeModalProduct.gallery = [activeModalProduct.img];
+      activeModalProduct.gallery.push(newUrl.trim());
+      activeModalSelectedImgIndex = activeModalProduct.gallery.length - 1;
+      await persistProductImages(activeModalProduct);
+      renderModalGallery();
+      showToast('Gallery photo added and saved.');
+    }
+
+    function triggerImageEditModalCurrent() {
+      if (!isAdmin || !activeModalProduct || activeModalProduct._source !== 'supabase') return;
+      triggerImageEdit(null, activeModalProduct.id, activeModalSelectedImgIndex);
+    }
+
+    function openAddProductModal() {
+      if (!isAdmin) { openAdminLogin(); return; }
+      editingProductId = null;
+      document.getElementById('productFormTitle').innerHTML = '<i data-lucide="plus-circle" class="w-5 h-5 text-amber-400"></i> Add New Candle Product';
+      document.getElementById('newProdName').value = '';
+      document.getElementById('newProdPrice').value = '';
+      document.getElementById('newProdCategory').value = 'Signature';
+      document.getElementById('newProdDesc').value = '';
+      document.getElementById('newProdStock').value = '10';
+      document.getElementById('newProdActive').checked = true;
+      document.getElementById('newProdImg').value = '';
+      document.getElementById('newProdImages').value = '';
+      document.getElementById('addProductModal').classList.remove('hidden');
+      initIcons();
+    }
+
+    function closeAddProductModal() { document.getElementById('addProductModal').classList.add('hidden'); }
+
+    function editProduct(id) {
+      if (!isAdmin) return;
+      const p = products.find(item => String(item.id) === String(id));
+      if (!p) return;
+      if (p._source !== 'supabase') { showToast('Demo sample product database mein saved nahi hai. Naya product add karein.'); return; }
+      editingProductId = p.id;
+      document.getElementById('productFormTitle').innerText = 'Edit Candle Product';
+      document.getElementById('newProdName').value = p.name || '';
+      document.getElementById('newProdPrice').value = p.price || 0;
+      document.getElementById('newProdCategory').value = p.category || 'Signature';
+      document.getElementById('newProdDesc').value = p.desc || p.description || '';
+      document.getElementById('newProdStock').value = Number(p.stock ?? 0);
+      document.getElementById('newProdActive').checked = p.is_active !== false;
+      document.getElementById('newProdImg').value = p.img || '';
+      document.getElementById('newProdImages').value = '';
+      document.getElementById('addProductModal').classList.remove('hidden');
+    }
+
+    async function uploadProductImage(file) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+      const path = `products/${Date.now()}-${Math.random().toString(36).slice(2)}-${safeName}`;
+      const {error} = await db.storage.from(STORAGE_BUCKET).upload(path, file, {cacheControl:'3600', upsert:false, contentType:file.type || 'image/jpeg'});
+      if (error) throw error;
+      const {data} = db.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+      return data.publicUrl;
+    }
+
+    async function saveProduct() {
+      if (!isAdmin) { alert('Admin login required.'); return; }
+      const name = document.getElementById('newProdName').value.trim();
+      const price = Number(document.getElementById('newProdPrice').value);
+      const category = document.getElementById('newProdCategory').value;
+      const description = document.getElementById('newProdDesc').value.trim();
+      const stock = Math.max(0, parseInt(document.getElementById('newProdStock').value, 10) || 0);
+      const is_active = document.getElementById('newProdActive').checked;
+      const manualImage = document.getElementById('newProdImg').value.trim();
+      const files = Array.from(document.getElementById('newProdImages').files || []);
+      if (!name || !Number.isFinite(price) || price <= 0) { alert('Valid product name aur price enter karein.'); return; }
+      const button = document.querySelector('#addProductModal button[onclick="submitNewProduct()"]');
+      if (button) { button.disabled = true; button.innerText = 'Saving...'; }
+      try {
+        const existing = editingProductId ? products.find(p => String(p.id) === String(editingProductId)) : null;
+        let gallery = existing?.gallery?.length ? [...existing.gallery] : [];
+        if (manualImage) {
+          if (gallery.length) gallery[0] = manualImage;
+          else gallery = [manualImage];
+        }
+        for (const file of files) gallery.push(await uploadProductImage(file));
+        if (!gallery.length) gallery = [defaultProducts[0].img];
+        gallery = [...new Set(gallery.filter(Boolean))];
+        if (!editingProductId && gallery.length < 3) { alert('New product ke liye kam se kam 3 photos add karein.'); return; }
+        const payload = {name, description, price, category, stock, image_url:gallery[0], image_urls:gallery, is_active};
+        let error;
+        if (editingProductId) {
+          ({error} = await db.from('products').update(payload).eq('id', editingProductId));
+        } else {
+          ({error} = await db.from('products').insert(payload));
+        }
+        if (error) throw error;
+        closeAddProductModal();
+        await loadAdminProducts();
+        showToast(editingProductId ? 'Product updated successfully.' : 'New product published successfully.');
+        editingProductId = null;
+      } catch (error) {
+        console.error('Save product error:', error);
+        alert('Product save nahi hua: ' + (error.message || 'Supabase table/storage policies check karein.'));
+      } finally {
+        if (button) { button.disabled = false; button.innerText = 'Save Product'; }
+      }
+    }
+
+    async function submitNewProduct() { await saveProduct(); }
+
+    async function deleteProduct(id) {
+      if (!isAdmin) return;
+      const p = products.find(item => String(item.id) === String(id));
+      if (!p || !confirm(`Delete "${p.name}" permanently?`)) return;
+      if (p._source !== 'supabase') { showToast('Demo sample products database mein saved nahi hain.'); return; }
+      const {error} = await db.from('products').delete().eq('id', p.id);
+      if (error) { alert('Delete failed: ' + error.message); return; }
+      await loadAdminProducts();
+      showToast('Product deleted.');
+    }
+
+    async function persistProductImages(product) {
+      if (!isAdmin || product._source !== 'supabase') return;
+      const gallery = product.gallery?.length ? product.gallery : [product.img];
+      const {error} = await db.from('products').update({image_url:gallery[0], image_urls:gallery}).eq('id', product.id);
+      if (error) throw error;
+      product.img = gallery[0];
+    }
+
+    function triggerImageEdit(imgId, productId = null, galleryIndex = null) {
+      if (!isAdmin || currentMode !== 'edit') return;
+      currentEditingImgId = {imgId, productId};
+      currentImgGalleryTarget = galleryIndex;
+      document.getElementById('imageModal').classList.remove('hidden');
+    }
+
+    function closeImageModal() {
+      document.getElementById('imageModal').classList.add('hidden');
+      document.getElementById('imageFileInput').value = '';
+      document.getElementById('imageUrlInput').value = '';
+    }
+
+    async function applyImageChange() {
+      if (!isAdmin) return;
+      const fileInput = document.getElementById('imageFileInput');
+      const urlInput = document.getElementById('imageUrlInput').value.trim();
+      try {
+        let newUrl = urlInput;
+        if (fileInput.files && fileInput.files[0]) {
+          if (currentEditingImgId?.productId) newUrl = await uploadProductImage(fileInput.files[0]);
+          else {
+            newUrl = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = e => resolve(e.target.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(fileInput.files[0]);
+            });
+          }
+        }
+        if (!newUrl) { alert('Please choose an image file or insert a valid image URL.'); return; }
+        if (currentEditingImgId?.imgId) {
+          const targetImg = document.getElementById(currentEditingImgId.imgId);
+          if (targetImg) targetImg.src = newUrl;
+        }
+        if (currentEditingImgId?.productId) {
+          const prod = products.find(p => String(p.id) === String(currentEditingImgId.productId));
+          if (prod) {
+            if (!prod.gallery?.length) prod.gallery = [prod.img];
+            if (currentImgGalleryTarget !== null && currentImgGalleryTarget !== undefined) prod.gallery[currentImgGalleryTarget] = newUrl;
+            else prod.gallery[0] = newUrl;
+            prod.gallery = prod.gallery.filter(Boolean);
+            prod.img = prod.gallery[0];
+            await persistProductImages(prod);
+            if (activeModalProduct && String(activeModalProduct.id) === String(prod.id)) renderModalGallery();
+          }
+        }
+        closeImageModal();
+        renderProducts(currentCategory, document.getElementById('searchInput').value);
+        showToast('Image updated successfully.');
+      } catch (error) {
+        console.error('Image update error:', error);
+        alert('Image update failed: ' + (error.message || 'Please try again.'));
+      }
+    }
+
+    function addToCart(productId, requestedQty = 1) {
+      const prod = products.find(p => String(p.id) === String(productId));
+      if (!prod) return;
+      if (prod.is_active === false) { showToast('This product is currently unavailable.'); return; }
+      const stock = Number(prod.stock ?? 999);
+      if (stock <= 0) { showToast('Sorry, this candle is out of stock.'); return; }
+      const existing = cart.find(i => String(i.id) === String(productId));
+      const currentQty = existing ? existing.qty : 0;
+      const qtyToAdd = Math.max(1, Number(requestedQty) || 1);
+      if (currentQty + qtyToAdd > stock) { showToast(`Only ${stock - currentQty} item(s) left in stock.`); return; }
+      if (existing) existing.qty += qtyToAdd;
+      else cart.push({...prod, qty:qtyToAdd});
+      updateCartUI();
+      showToast(`Added ${qtyToAdd} × "${prod.name}" to cart.`);
+    }
+
+    function updateCartQuantity(id, delta) {
+      const item = cart.find(i => String(i.id) === String(id));
+      if (!item) return;
+      const next = item.qty + delta;
+      if (next > Number(item.stock ?? 999)) { showToast('Available stock limit reached.'); return; }
+      if (next <= 0) cart = cart.filter(i => String(i.id) !== String(id));
+      else item.qty = next;
+      updateCartUI();
+    }
+
+    function calculateCartTotals() {
+      const subtotal = cart.reduce((sum, item) => sum + Number(item.price || 0) * item.qty, 0);
+      const shipping = subtotal === 0 || subtotal >= FREE_SHIPPING_LIMIT ? 0 : SHIPPING_FLAT;
+      return {subtotal, shipping, total:subtotal + shipping};
+    }
+
+    function updateCartUI() {
+      const badge = document.getElementById('cartBadge');
+      const list = document.getElementById('cartItemsList');
+      const totals = calculateCartTotals();
+      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+      if (totalItems > 0) { badge.innerText = totalItems; badge.classList.remove('scale-0'); }
+      else badge.classList.add('scale-0');
+      document.getElementById('cartSubtotal').innerText = `${currentCurrency}${totals.subtotal.toLocaleString('en-IN')}`;
+      const shippingEl = document.getElementById('cartShipping');
+      const totalEl = document.getElementById('cartTotal');
+      if (shippingEl) shippingEl.innerText = totals.shipping === 0 ? 'FREE' : `${currentCurrency}${totals.shipping}`;
+      if (totalEl) totalEl.innerText = `${currentCurrency}${totals.total.toLocaleString('en-IN')}`;
+      if (!cart.length) {
+        list.innerHTML = '<div class="text-center py-12 text-warm-400 text-xs">Your cart is currently empty.</div>';
+        return;
+      }
+      list.innerHTML = cart.map(item => `
+        <div class="flex gap-3 py-3 items-center border-b border-amber-900/30">
+          <img src="${escapeHTML(item.img)}" alt="${escapeHTML(item.name)}" class="w-14 h-14 rounded-xl object-contain bg-warm-950 border border-amber-900/50 p-1">
+          <div class="flex-1 min-w-0"><h5 class="text-xs font-bold text-amber-100">${escapeHTML(item.name)}</h5><p class="text-[11px] text-amber-400 font-semibold">${currentCurrency}${Number(item.price).toLocaleString('en-IN')}</p>
+            <div class="flex items-center gap-2 mt-1"><button onclick="updateCartQuantity('${escapeHTML(item.id)}', -1)" class="w-5 h-5 bg-warm-950 rounded text-xs font-bold text-amber-300 border border-amber-900/40">-</button><span class="text-xs text-amber-100">${item.qty}</span><button onclick="updateCartQuantity('${escapeHTML(item.id)}', 1)" class="w-5 h-5 bg-warm-950 rounded text-xs font-bold text-amber-300 border border-amber-900/40">+</button></div>
+          </div><button onclick="updateCartQuantity('${escapeHTML(item.id)}', -${item.qty})" class="text-warm-400 hover:text-rose-400 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        </div>`).join('');
+      initIcons();
+    }
+
+    function toggleCartDrawer() {
+      const drawer = document.getElementById('cartDrawer');
+      const overlay = document.getElementById('cartOverlay');
+      const isOpen = !drawer.classList.contains('translate-x-full');
+      if (isOpen) { drawer.classList.add('translate-x-full'); overlay.classList.add('opacity-0','pointer-events-none'); }
+      else { drawer.classList.remove('translate-x-full'); overlay.classList.remove('opacity-0','pointer-events-none'); }
+    }
+
+    function toggleMobileMenu() { document.getElementById('mobileMenu').classList.toggle('hidden'); }
+
+    function simulateCheckout() {
+      if (!cart.length) { alert('Your shopping cart is empty!'); return; }
+      const totals = calculateCartTotals();
+      document.getElementById('checkoutSubtotal').innerText = `₹${totals.subtotal.toLocaleString('en-IN')}`;
+      document.getElementById('checkoutShipping').innerText = totals.shipping === 0 ? 'FREE' : `₹${totals.shipping}`;
+      document.getElementById('checkoutTotal').innerText = `₹${totals.total.toLocaleString('en-IN')}`;
+      document.getElementById('checkoutModal').classList.remove('hidden');
+      initIcons();
+    }
+
+    function closeCheckoutModal() { document.getElementById('checkoutModal').classList.add('hidden'); }
+
+    function sendWhatsAppOrder() {
+      if (!cart.length) { alert('Your cart is empty.'); closeCheckoutModal(); return; }
+      const name = document.getElementById('customerName').value.trim();
+      const phone = document.getElementById('customerPhone').value.replace(/\D/g, '');
+      const address = document.getElementById('customerAddress').value.trim();
+      const city = document.getElementById('customerCity').value.trim();
+      const pin = document.getElementById('customerPincode').value.replace(/\D/g, '');
+      if (!name || phone.length !== 10 || !address || !city || pin.length !== 6) {
+        alert('Please name, valid 10-digit mobile, full address, city aur 6-digit PIN code sahi se bharein.'); return;
+      }
+      if (WHATSAPP_NUMBER.includes('X')) { alert('WhatsApp order setup pending hai. Code mein WHATSAPP_NUMBER placeholder ko apne business number se replace karein.'); return; }
+      const totals = calculateCartTotals();
+      const lines = cart.map(item => `• ${item.name} × ${item.qty} = ₹${(Number(item.price) * item.qty).toLocaleString('en-IN')}`);
+      const message = [
+        '*New Order – Whispering Breeze*','',`Name: ${name}`,`Customer Mobile: ${phone}`,`Address: ${address}, ${city} - ${pin}`,'','*Order Items*',...lines,'',
+        `Subtotal: ₹${totals.subtotal.toLocaleString('en-IN')}`,`Shipping: ${totals.shipping === 0 ? 'FREE' : '₹' + totals.shipping}`,`*Estimated Total: ₹${totals.total.toLocaleString('en-IN')}*`,'',
+        'Please confirm availability and order details. I understand this message is an order request, not an online payment confirmation.'
+      ].join('\n');
+      const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+      window.open(url, '_blank', 'noopener');
+      showToast('WhatsApp opened with your order details. Order is not confirmed until seller replies.');
+    }
+
+    function startCountdownTimer() {
+      let hours = 8, mins = 42, secs = 19;
+      setInterval(() => {
+        if (secs > 0) secs--;
+        else { secs = 59; if (mins > 0) mins--; else { mins = 59; hours = hours > 0 ? hours - 1 : 12; } }
+        document.getElementById('timerHours').innerText = String(hours).padStart(2,'0');
+        document.getElementById('timerMins').innerText = String(mins).padStart(2,'0');
+        document.getElementById('timerSecs').innerText = String(secs).padStart(2,'0');
+      }, 1000);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMessage').innerText = msg;
+      toast.classList.remove('translate-y-20','opacity-0','pointer-events-none');
+      setTimeout(() => toast.classList.add('translate-y-20','opacity-0','pointer-events-none'), 3000);
+    }
+  </script>
+</body>
+</html>
